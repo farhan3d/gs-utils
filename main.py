@@ -20,20 +20,27 @@ class SheetManager:
         gc = gspread.authorize(credentials)
         self.ss = gc.open_by_key(sheet_id)
 
-    def get_ws_rng(self, ws, strt_cell):
+    def get_ws_rng(self, ws, strt_cell, height=0):
         rng = None
-        height = None
         width = None
         if self.ss is not None:
             match = re.match(r"([a-z]+)([0-9]+)", strt_cell, re.I)
             header_row_len = len(ws.row_values(match.groups()[1]))
             col_number = LETTERS.index(match.groups()[0].lower())
-            first_col_len = len(ws.col_values(col_number+1))
+            max_col_len = 0
+            if height == 0:
+                col_lens_arr = []
+                for i in range(0, header_row_len):
+                    col_len = len(ws.col_values(col_number+i+1))
+                    col_lens_arr.append(col_len)
+                max_col_len = max(col_lens_arr)
+            else:
+                max_col_len = height
             width = header_row_len
-            height = first_col_len - int(match.group()[1]) + 1
+            height = max_col_len - int(match.groups()[1]) + 1
             if header_row_len < len(LETTERS):
                 rng_str = strt_cell + ':' + \
-                    LETTERS[header_row_len-1].upper() + str(first_col_len)
+                    LETTERS[header_row_len-1].upper() + str(max_col_len)
                 rng = ws.range(rng_str)
             else:
                 print('Unable to construct range.')
@@ -88,6 +95,21 @@ class ArrayManager2D:
         row = arr[loc]
         return row
 
+    @staticmethod
+    def get_val_in_row_by_col_name(row, headers, col_name):
+        col_num = np.where(headers == col_name)[0][0]
+        val = row[col_num]
+        return val
+
+    # where 'row name' is the item in the specified column
+    # of the desired row
+    @staticmethod
+    def get_row_from_arr_by_col(arr, headers, row_name, col_name):
+        col_num = np.where(headers == col_name)[0][0]
+        loc = np.where(arr[:, col_num] == row_name)[0][0]
+        row = arr[loc]
+        return row
+
     # get a single value in the table using the column name,
     # the name of the first item in the row, the 1d header
     # array, and the 2d data array
@@ -100,6 +122,15 @@ class ArrayManager2D:
             intersection_value = arr[row_loc, col_loc]
         except:
             pass
+        return intersection_value
+
+    @staticmethod
+    def get_intersection_two_columns(headers, arr, col_name1, col_name2, col1_row_name):
+        intersection_value = None
+        col_loc = np.where(headers == col_name2)[0][0]
+        col1_loc = np.where(headers == col_name1)[0][0]
+        row_loc = np.where(arr[:, col1_loc] == col1_row_name)[0][0]
+        intersection_value = arr[row_loc, col_loc]
         return intersection_value
 
     # get a consolidated new 2d array from the parent array
